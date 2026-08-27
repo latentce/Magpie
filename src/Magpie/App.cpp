@@ -35,6 +35,7 @@
 #include "SettingsGroup.h"
 #include "ShortcutService.h"
 #include "TextBlockHelper.h"
+#include "ThemeHelper.h"
 #include "ToastService.h"
 #include "UpdateService.h"
 #include "Win32Helper.h"
@@ -194,7 +195,7 @@ bool App::Initialize(const wchar_t* arguments) {
 
 		// 有的设备上后台调用 D3D11CreateDevice 会拖累主窗口显示速度，因此应在主窗口显示后
 		// 再检查显卡的功能级别。
-		_mainWindow->Content()->Loaded([](const auto&, const auto&) {
+		_mainWindow->RootPage().Loaded([](const auto&, const auto&) {
 			// 低优先级回调确保在初始化完毕后执行
 			App::Get().Dispatcher().TryEnqueue(DispatcherQueuePriority::Low, []() {
 				AdaptersService::Get().StartMonitor();
@@ -262,9 +263,9 @@ void App::Restart(bool asElevated, const wchar_t* arguments) noexcept {
 	}
 }
 
-const com_ptr<RootPage>& App::RootPage() const noexcept {
+RootPage& App::RootPage() const noexcept {
 	assert(_mainWindow && *_mainWindow);
-	return _mainWindow->Content();
+	return _mainWindow->RootPage();
 }
 
 INumberFormatter2 App::DoubleFormatter() {

@@ -144,7 +144,6 @@
       <Filter>Services</Filter>
     </ClInclude>
     <ClInclude Include="MainWindow.h" />
-    <ClInclude Include="XamlWindow.h" />
     <ClInclude Include="ThemeHelper.h">
       <Filter>Helpers</Filter>
     </ClInclude>
@@ -166,6 +165,7 @@
     <ClInclude Include="ControlHelper.h">
       <Filter>Helpers</Filter>
     </ClInclude>
+    <ClInclude Include="BorderlessWindow.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Pages">

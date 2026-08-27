@@ -73,7 +73,7 @@
     <ClInclude Include="include\Event.h">
       <Filter>Include</Filter>
     </ClInclude>
-    <ClInclude Include="include\WindowBase.h">
+    <ClInclude Include="include\BaseWindow.h">
       <Filter>Include</Filter>
     </ClInclude>
     <ClInclude Include="include\DirectXHelper.h">

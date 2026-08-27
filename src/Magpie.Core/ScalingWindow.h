@@ -1,14 +1,14 @@
 #pragma once
+#include "BaseWindow.h"
 #include "ScalingOptions.h"
 #include "SrcTracker.h"
-#include "WindowBase.h"
 
 namespace Magpie {
 
 class CursorManager;
 
-class ScalingWindow final : public WindowBaseT<ScalingWindow> {
-	using base_type = WindowBaseT<ScalingWindow>;
+class ScalingWindow final : public BaseWindow<ScalingWindow> {
+	using base_type = BaseWindow<ScalingWindow>;
 	friend base_type;
 
 public:

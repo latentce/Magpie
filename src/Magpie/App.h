@@ -35,7 +35,7 @@ public:
 
 	void Restart(bool asElevated = false, const wchar_t* arguments = nullptr) noexcept;
 
-	const com_ptr<RootPage>& RootPage() const noexcept;
+	RootPage& RootPage() const noexcept;
 
 	const ::Magpie::MainWindow& MainWindow() const noexcept {
 		return *_mainWindow;

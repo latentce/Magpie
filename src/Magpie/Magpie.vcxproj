@@ -119,6 +119,7 @@
       <DependentUpon>BoolToNegativeVisibilityConverter.idl</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
+    <ClInclude Include="BorderlessWindow.h" />
     <ClInclude Include="CandidateWindowItem.h">
       <DependentUpon>CandidateWindowItem.idl</DependentUpon>
       <SubType>Code</SubType>
@@ -279,7 +280,6 @@
       <SubType>Code</SubType>
     </ClInclude>
     <ClInclude Include="XamlHelper.h" />
-    <ClInclude Include="XamlWindow.h" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
