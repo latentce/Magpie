@@ -57,7 +57,10 @@ bool MainWindow::Create() noexcept {
 		return Ignore();
 	}();
 
-	const auto& [posToSet, sizeToSet] = _CreateWindow();
+	POINT windowPos;
+	SIZE windowSize;
+	MONITORINFO monitorInfo;
+	_CreateWindow(windowPos, windowSize, monitorInfo);
 
 	if (!Handle()) {
 		return false;
@@ -88,25 +91,19 @@ bool MainWindow::Create() noexcept {
 		xst->put_IsBackgroundTransparent(true);
 	}
 
-	// _isSmoothResizeEnabled = SmoothResizeHelper::EnableResizeSync(Handle(), App::Get());
+	_isSmoothResizeEnabled = SmoothResizeHelper::EnableResizeSync(Handle(), App::Get());
 
-	// ShowWindow(Handle(), SW_SHOWMAXIMIZED) 会显示错误的动画。因此我们以窗口化显示，
-	// 但位置和大小都和最大化相同，显示完毕后将状态设为最大化。
-	// SetWindowPos 的作用如下：
-	// 1. 设置初始 XAML Islands 窗口的尺寸
+	// 以最大化启动时 ShowWindow(Handle(), SW_SHOWMAXIMIZED) 会显示错误的动画，因此这里以
+	// 以窗口化启动，但位置和大小都和最大化相同，显示完毕后将状态设为最大化。除此之外，
+	// SetWindowPos 还有其它作用：
+	// 1. 延后设置窗口位置，同时设置初始 XAML Islands 窗口的尺寸
 	// 2. 刷新窗口边框
-	// 3. 无法获知 DPI 的情况下 _CreateWindow 创建的窗口尺寸为零，在这里延后设置窗口位置
-	// 4. 防止窗口显示时背景闪烁: https://stackoverflow.com/questions/69715610/how-to-initialize-the-background-color-of-win32-app-to-something-other-than-whit
+	// 3. 防止窗口显示时背景闪烁: https://stackoverflow.com/questions/69715610/how-to-initialize-the-background-color-of-win32-app-to-something-other-than-whit
 	if (AppSettings::Get().IsMainWindowMaximized()) {
-		HMONITOR hMon = MonitorFromWindow(Handle(), MONITOR_DEFAULTTONEAREST);
-
-		MONITORINFO mi = { .cbSize = sizeof(MONITORINFO) };
-		GetMonitorInfo(hMon, &mi);
-
 		// 让 XAML Islands 窗口尺寸和最大化后相同
-		RECT frame = mi.rcWork;
+		RECT frame = monitorInfo.rcWork;
 		AdjustWindowRectExForDpi(&frame, GetWindowStyle(Handle()), FALSE, 0, GetDpi());
-		frame.top = mi.rcWork.top;
+		frame.top = monitorInfo.rcWork.top;
 
 		SetWindowPos(
 			Handle(),
@@ -117,14 +114,12 @@ bool MainWindow::Create() noexcept {
 			frame.bottom - frame.top,
 			SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOCOPYBITS
 		);
-	} else {
-		SetWindowPos(Handle(), NULL, posToSet.x, posToSet.y, sizeToSet.cx, sizeToSet.cy,
-			(sizeToSet.cx == 0 ? (SWP_NOMOVE | SWP_NOSIZE) : 0) | SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOCOPYBITS);
-	}
 
-	// RootPage 加载完成后显示主窗口
-	if (AppSettings::Get().IsMainWindowMaximized()) {
-		_rootPage->Loaded([this, posToSet, sizeToSet](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
+		// rcNormalPosition 使用工作区坐标
+		POINT workspacePos = { windowPos.x + monitorInfo.rcWork.top , windowPos.y + monitorInfo.rcWork.left };
+
+		// RootPage 加载完成后显示主窗口
+		_rootPage->Loaded([this, workspacePos, windowSize](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
 			ShowWindow(Handle(), SW_SHOWNORMAL);
 
 			WINDOWPLACEMENT wp = { .length = sizeof(wp) };
@@ -134,13 +129,16 @@ bool MainWindow::Create() noexcept {
 			wp.showCmd = SW_SHOWMAXIMIZED;
 			SetWindowPlacement(Handle(), &wp);
 
-			wp.rcNormalPosition.left = posToSet.x;
-			wp.rcNormalPosition.top = posToSet.y;
-			wp.rcNormalPosition.right = posToSet.x + sizeToSet.cx;
-			wp.rcNormalPosition.bottom = posToSet.y + sizeToSet.cy;
+			wp.rcNormalPosition.left = workspacePos.x;
+			wp.rcNormalPosition.top = workspacePos.y;
+			wp.rcNormalPosition.right = workspacePos.x + windowSize.cx;
+			wp.rcNormalPosition.bottom = workspacePos.y + windowSize.cy;
 			SetWindowPlacement(Handle(), &wp);
 		});
 	} else {
+		SetWindowPos(Handle(), NULL, windowPos.x, windowPos.y, windowSize.cx, windowSize.cy,
+			SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOCOPYBITS);
+
 		_rootPage->Loaded([this](winrt::IInspectable const&, winrt::RoutedEventArgs const&) {
 			ShowWindow(Handle(), SW_SHOWNORMAL);
 		});
@@ -370,7 +368,7 @@ LRESULT MainWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) noex
 			return ht;
 		}
 
-		const POINT cursorPos{ GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam) };
+		const POINT cursorPos = { GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam) };
 
 		RECT clientRect;
 		Win32Helper::GetClientScreenRect(Handle(), clientRect);
@@ -522,20 +520,19 @@ void MainWindow::_DrawBackground(HDC hdc, const RECT& bkgRect) const noexcept {
 	}
 }
 
-std::pair<POINT, SIZE> MainWindow::_CreateWindow() noexcept {
-	const bool isMaximized = AppSettings::Get().IsMainWindowMaximized();
+void MainWindow::_CreateWindow(POINT& windowPos, SIZE& windowSize, MONITORINFO& monitorInfo) noexcept {
 	const winrt::Point& windowCenter = AppSettings::Get().MainWindowCenter();
 	winrt::Size windowSizeInDips = AppSettings::Get().MainWindowSizeInDips();
 	
-	POINT windowPos = { CW_USEDEFAULT,CW_USEDEFAULT };
-	SIZE windowSize{};
+	windowPos = { CW_USEDEFAULT,CW_USEDEFAULT };
+	windowSize = {};
 
 	// windowSizeInDips 小于零表示默认位置和尺寸
 	if (windowSizeInDips.Width > 0) {
 		// 检查窗口中心点的 DPI，根据我的测试，创建窗口时 Windows 使用窗口中心点确定 DPI。
 		// 如果窗口中心点不在任何屏幕上，则查找最近的屏幕。如果窗口尺寸太大无法被屏幕容纳，
 		// 则还原为默认位置和尺寸。
-		const HMONITOR hMon = MonitorFromPoint(
+		HMONITOR hMon = MonitorFromPoint(
 			{ std::lround(windowCenter.X),std::lround(windowCenter.Y) },
 			MONITOR_DEFAULTTONEAREST
 		);
@@ -552,16 +549,17 @@ std::pair<POINT, SIZE> MainWindow::_CreateWindow() noexcept {
 		windowSize.cx = std::lround(windowSizeInPixels.Width);
 		windowSize.cy = std::lround(windowSizeInPixels.Height);
 
-		MONITORINFO mi = { .cbSize = sizeof(mi) };
-		GetMonitorInfo(hMon, &mi);
+		monitorInfo = { .cbSize = sizeof(MONITORINFO) };
+		GetMonitorInfo(hMon, &monitorInfo);
 
 		// 确保启动位置在屏幕工作区内。不允许启动时跨越多个屏幕
-		if (windowSize.cx <= mi.rcWork.right - mi.rcWork.left && windowSize.cy <= mi.rcWork.bottom - mi.rcWork.top) {
+		if (windowSize.cx <= monitorInfo.rcWork.right - monitorInfo.rcWork.left &&
+			windowSize.cy <= monitorInfo.rcWork.bottom - monitorInfo.rcWork.top) {
 			windowPos.x = std::lround(windowCenter.X - windowSizeInPixels.Width / 2);
-			windowPos.x = std::clamp(windowPos.x, mi.rcWork.left, mi.rcWork.right - windowSize.cx);
+			windowPos.x = std::clamp(windowPos.x, monitorInfo.rcWork.left, monitorInfo.rcWork.right - windowSize.cx);
 
 			windowPos.y = std::lround(windowCenter.Y - windowSizeInPixels.Height / 2);
-			windowPos.y = std::clamp(windowPos.y, mi.rcWork.top, mi.rcWork.bottom - windowSize.cy);
+			windowPos.y = std::clamp(windowPos.y, monitorInfo.rcWork.top, monitorInfo.rcWork.bottom - windowSize.cy);
 		} else {
 			// 屏幕工作区无法容纳窗口则使用默认窗口尺寸
 			windowSize = {};
@@ -569,17 +567,17 @@ std::pair<POINT, SIZE> MainWindow::_CreateWindow() noexcept {
 		}
 	}
 
-	// Win11 22H2 中为了使用 Mica 背景需指定 WS_EX_NOREDIRECTIONBITMAP。
-	// windowSize 可能为零，并返回窗口尺寸给调用者。
 	CreateWindowEx(
+		// Win11 22H2 中为了使用 Mica 背景需指定 WS_EX_NOREDIRECTIONBITMAP
 		_ShouldDrawBackground() ? 0 : WS_EX_NOREDIRECTIONBITMAP,
 		CommonSharedConstants::MAIN_WINDOW_CLASS_NAME,
 		L"Magpie",
 		WS_OVERLAPPEDWINDOW,
 		windowPos.x,
 		windowPos.y,
-		isMaximized ? 0 : windowSize.cx,
-		isMaximized ? 0 : windowSize.cy,
+		// 尺寸为 0，有两个原因：一是可能无法确定尺寸，二是以最大化启动时需保持 XAML Islands 窗口尺寸稳定
+		0,
+		0,
 		NULL,
 		NULL,
 		wil::GetModuleInstanceHandle(),
@@ -587,55 +585,51 @@ std::pair<POINT, SIZE> MainWindow::_CreateWindow() noexcept {
 	);
 	assert(Handle());
 
-	if (windowSize.cx == 0) {
-		const HMONITOR hMon = MonitorFromWindow(Handle(), MONITOR_DEFAULTTONEAREST);
+	if (windowSize.cx != 0) {
+		return;
+	}
 
-		MONITORINFO mi{ .cbSize = sizeof(mi) };
-		GetMonitorInfo(hMon, &mi);
+	HMONITOR hMon = MonitorFromWindow(Handle(), MONITOR_DEFAULTTONEAREST);
 
-		const float dpiFactor = GetDpi() / float(USER_DEFAULT_SCREEN_DPI);
-		const winrt::Size workingAreaSizeInDips = {
-			(mi.rcWork.right - mi.rcWork.left) / dpiFactor,
-			(mi.rcWork.bottom - mi.rcWork.top) / dpiFactor
-		};
+	monitorInfo = { .cbSize = sizeof(MONITORINFO) };
+	GetMonitorInfo(hMon, &monitorInfo);
 
-		// 确保启动尺寸小于屏幕工作区
-		if (windowSizeInDips.Width <= 0 ||
-			windowSizeInDips.Width > workingAreaSizeInDips.Width ||
+	const float dpiFactor = GetDpi() / float(USER_DEFAULT_SCREEN_DPI);
+	const winrt::Size workingAreaSizeInDips = {
+		(monitorInfo.rcWork.right - monitorInfo.rcWork.left) / dpiFactor,
+		(monitorInfo.rcWork.bottom - monitorInfo.rcWork.top) / dpiFactor
+	};
+
+	// 确保启动尺寸小于屏幕工作区
+	if (windowSizeInDips.Width <= 0 ||
+		windowSizeInDips.Width > workingAreaSizeInDips.Width ||
+		windowSizeInDips.Height > workingAreaSizeInDips.Height) {
+		// 默认尺寸
+		constexpr winrt::Size DEFAULT_SIZE = { 980.0f, 690.0f };
+
+		windowSizeInDips = DEFAULT_SIZE;
+
+		if (windowSizeInDips.Width > workingAreaSizeInDips.Width ||
 			windowSizeInDips.Height > workingAreaSizeInDips.Height) {
-			// 默认尺寸
-			constexpr winrt::Size DEFAULT_SIZE = { 980.0f, 690.0f };
+			// 屏幕太小无法容纳默认尺寸
+			windowSizeInDips.Width = workingAreaSizeInDips.Width * 0.8f;
+			windowSizeInDips.Height = windowSizeInDips.Width * DEFAULT_SIZE.Height / DEFAULT_SIZE.Width;
 
-			windowSizeInDips = DEFAULT_SIZE;
-
-			if (windowSizeInDips.Width > workingAreaSizeInDips.Width ||
-				windowSizeInDips.Height > workingAreaSizeInDips.Height) {
-				// 屏幕太小无法容纳默认尺寸
-				windowSizeInDips.Width = workingAreaSizeInDips.Width * 0.8f;
-				windowSizeInDips.Height = windowSizeInDips.Width * DEFAULT_SIZE.Height / DEFAULT_SIZE.Width;
-
-				if (windowSizeInDips.Height > workingAreaSizeInDips.Height) {
-					windowSizeInDips.Height = workingAreaSizeInDips.Height * 0.8f;
-					windowSizeInDips.Width = windowSizeInDips.Height * DEFAULT_SIZE.Width / DEFAULT_SIZE.Height;
-				}
+			if (windowSizeInDips.Height > workingAreaSizeInDips.Height) {
+				windowSizeInDips.Height = workingAreaSizeInDips.Height * 0.8f;
+				windowSizeInDips.Width = windowSizeInDips.Height * DEFAULT_SIZE.Width / DEFAULT_SIZE.Height;
 			}
 		}
-
-		windowSize.cx = std::lround(windowSizeInDips.Width * dpiFactor);
-		windowSize.cy = std::lround(windowSizeInDips.Height * dpiFactor);
-
-		// 确保启动位置在屏幕工作区内
-		RECT targetRect;
-		GetWindowRect(Handle(), &targetRect);
-		windowPos.x = std::clamp(targetRect.left, mi.rcWork.left, mi.rcWork.right - windowSize.cx);
-		windowPos.y = std::clamp(targetRect.top, mi.rcWork.top, mi.rcWork.bottom - windowSize.cy);
-
-		return std::make_pair(windowPos, windowSize);
-	} else if (isMaximized) {
-		return std::make_pair(windowPos, windowSize);
-	} else {
-		return {};
 	}
+
+	windowSize.cx = std::lround(windowSizeInDips.Width * dpiFactor);
+	windowSize.cy = std::lround(windowSizeInDips.Height * dpiFactor);
+
+	// 确保启动位置在屏幕工作区内
+	RECT targetRect;
+	GetWindowRect(Handle(), &targetRect);
+	windowPos.x = std::clamp(targetRect.left, monitorInfo.rcWork.left, monitorInfo.rcWork.right - windowSize.cx);
+	windowPos.y = std::clamp(targetRect.top, monitorInfo.rcWork.top, monitorInfo.rcWork.bottom - windowSize.cy);
 }
 
 void MainWindow::_UpdateTheme() noexcept {

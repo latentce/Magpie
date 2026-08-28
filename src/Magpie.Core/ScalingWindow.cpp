@@ -24,7 +24,9 @@ static bool IsTopmostWindow(HWND hWnd) noexcept {
 
 ScalingWindow::ScalingWindow() noexcept {}
 
-ScalingWindow::~ScalingWindow() noexcept {}
+ScalingWindow::~ScalingWindow() noexcept {
+	Destroy();
+}
 
 static void LogRects(const RECT& srcRect, const RECT& rendererRect, const RECT& windowRect) noexcept {
 	Logger::Get().Info(fmt::format("源矩形: {},{},{},{} ({}x{})",

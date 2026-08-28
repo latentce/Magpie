@@ -34,7 +34,7 @@ private:
 
 	void _DrawBackground(HDC hdc, const RECT& bkgRect) const noexcept;
 
-	std::pair<POINT, SIZE> _CreateWindow() noexcept;
+	void _CreateWindow(POINT& windowPos, SIZE& windowSize, MONITORINFO& monitorInfo) noexcept;
 
 	void _UpdateTheme() noexcept;
 

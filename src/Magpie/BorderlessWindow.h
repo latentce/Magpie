@@ -166,7 +166,7 @@ protected:
 				}
 			}
 
-			// 子类可进一步细分出标题栏区域
+			// 派生类可进一步细分出标题栏区域
 			return HTCLIENT;
 		}
 		case WM_PAINT:
