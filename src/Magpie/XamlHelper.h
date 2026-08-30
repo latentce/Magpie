@@ -3,6 +3,9 @@
 namespace Magpie {
 
 struct XamlHelper {
+	// 使 XAML Islands 背景透明
+	static void SetWindowBackgroundTransparency(const winrt::Window& window, bool transparent) noexcept;
+
 	static void CloseComboBoxPopup(const winrt::XamlRoot& root);
 
 	static void ClosePopups(const winrt::XamlRoot& root);
