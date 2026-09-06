@@ -180,6 +180,15 @@ public:
 		SaveAsync();
 	}
 
+	bool IsWindowedFrameless() const noexcept {
+		return _isWindowedFrameless;
+	}
+
+	void IsWindowedFrameless(bool value) noexcept {
+		_isWindowedFrameless = value;
+		SaveAsync();
+	}
+
 	Profile& DefaultProfile() noexcept {
 		return _defaultProfile;
 	}
@@ -369,6 +378,7 @@ private:
 	bool _isAllowScalingMaximized = false;
 	bool _isKeepScreenOn = false;
 	bool _isSimulateExclusiveFullscreen = false;
+	bool _isWindowedFrameless = false;
 	bool _isInlineParams = false;
 	bool _isShowNotifyIcon = true;
 	bool _isMainWindowMaximized = false;

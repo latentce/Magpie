@@ -172,7 +172,8 @@ enum class ScalingFlags : uint32_t {
 	DisableFP16 = 1 << 16,
 	BenchmarkMode = 1 << 17,
 	DeveloperMode = 1 << 18,
-	DisableTopmost = 1 << 19
+	DisableTopmost = 1 << 19,
+	WindowedFrameless = 1 << 20
 };
 DEFINE_ENUM_FLAG_OPERATORS(ScalingFlags)
 
@@ -197,6 +198,7 @@ struct ScalingOptions {
 	DEFINE_FLAG_ACCESSOR(IsBenchmarkMode, ScalingFlags::BenchmarkMode, flags)
 	DEFINE_FLAG_ACCESSOR(IsDeveloperMode, ScalingFlags::DeveloperMode, flags)
 	DEFINE_FLAG_ACCESSOR(IsTopmostDisabled, ScalingFlags::DisableTopmost, flags)
+	DEFINE_FLAG_ACCESSOR(IsWindowedFrameless, ScalingFlags::WindowedFrameless, flags)
 
 	std::vector<EffectOption> effects;
 	ScalingFlags flags = ScalingFlags::AdjustCursorSpeed;

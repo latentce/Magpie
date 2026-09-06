@@ -124,7 +124,7 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 		return Ignore();
 	}();
 
-	const SrcWindowKind srcWindowKind = _srcTracker.WindowKind();
+	const SrcWindowKind srcWindowKind = _WindowKindForFrame();
 	const bool isWin11 = Win32Helper::GetOSVersion().IsWin11();
 	// 不存在非客户区，渲染无需创建在子窗口里
 	const bool isAllClient = !isWin11 &&
@@ -151,7 +151,7 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 				_topBorderThicknessInClient = Win32Helper::GetNativeWindowBorderThickness(_currentDpi);
 			}
 
-			if (_srcTracker.WindowKind() == SrcWindowKind::NoBorder) {
+			if (srcWindowKind == SrcWindowKind::NoBorder) {
 				// Win11 中为客户区内的边框预留空间
 				assert(isWin11);
 				_nonTopBorderThicknessInClient = _topBorderThicknessInClient;
@@ -295,7 +295,7 @@ ScalingError ScalingWindow::_StartImpl(HWND hwndSrc) noexcept {
 
 	if (!_options.IsAllowScalingMaximized()) {
 		// 检查源窗口是否是无边框全屏窗口
-		if (srcWindowKind == SrcWindowKind::NoNativeFrame && _srcTracker.WindowRect() == _rendererRect) {
+		if (_srcTracker.WindowKind() == SrcWindowKind::NoNativeFrame && _srcTracker.WindowRect() == _rendererRect) {
 			Logger::Get().Info("源窗口已全屏");
 			return ScalingError::Maximized;
 		}
@@ -444,7 +444,7 @@ LRESULT ScalingWindow::_MessageHandler(UINT msg, WPARAM wParam, LPARAM lParam) n
 				DwmExtendFrameIntoClientArea(Handle(), &margins);
 			}
 
-			if (_srcTracker.WindowKind() == SrcWindowKind::NoNativeFrame && Win32Helper::GetOSVersion().IsWin11()) {
+			if (_WindowKindForFrame() == SrcWindowKind::NoNativeFrame && Win32Helper::GetOSVersion().IsWin11()) {
 				// Win11 中禁用边框和圆角以模仿 NoNativeFrame 的样式
 				COLORREF color = DWMWA_COLOR_NONE;
 				DwmSetWindowAttribute(Handle(), DWMWA_BORDER_COLOR, &color, sizeof(color));
@@ -1998,11 +1998,17 @@ bool ScalingWindow::_CalcTopmostState() const noexcept {
 bool ScalingWindow::_IsBorderless() const noexcept {
 	assert(_options.IsWindowedMode());
 
-	const SrcWindowKind srcWindowKind = _srcTracker.WindowKind();
+	const SrcWindowKind srcWindowKind = _WindowKindForFrame();
 	// NoBorder: Win11 中这类窗口有着特殊的边框，因此和 Win10 的处理方式相同。
 	// NoNativeFrame: Win11 中实现为无标题栏并隐藏边框。
 	return srcWindowKind == SrcWindowKind::NoBorder || 
 		(srcWindowKind == SrcWindowKind::NoNativeFrame && Win32Helper::GetOSVersion().IsWin10());
+}
+
+SrcWindowKind ScalingWindow::_WindowKindForFrame() const noexcept {
+	// 启用无边框选项时缩放窗口使用 NoNativeFrame 的样式：无边框且无圆角
+	return _options.IsWindowedFrameless() ?
+		SrcWindowKind::NoNativeFrame : _srcTracker.WindowKind();
 }
 
 void ScalingWindow::_UpdateRendererRect() noexcept {

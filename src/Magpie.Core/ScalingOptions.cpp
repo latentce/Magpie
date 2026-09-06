@@ -63,6 +63,7 @@ void ScalingOptions::Prepare() noexcept {
 
 	Logger::Get().Info(fmt::format(R"(缩放选项
 	IsWindowedMode: {}
+	IsWindowedFrameless: {}
 	IsDebugMode: {}
 	IsBenchmarkMode: {}
 	IsTopmostDisabled: {}
@@ -98,6 +99,7 @@ void ScalingOptions::Prepare() noexcept {
 	screenshotsDir: {}
 	effects: {})",
 		IsWindowedMode(),
+		IsWindowedFrameless(),
 		IsDebugMode(),
 		IsBenchmarkMode(),
 		IsTopmostDisabled(),

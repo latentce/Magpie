@@ -362,6 +362,21 @@ void HomeViewModel::IsSimulateExclusiveFullscreen(bool value) {
 	RaisePropertyChanged(L"IsSimulateExclusiveFullscreen");
 }
 
+bool HomeViewModel::IsWindowedFrameless() const noexcept {
+	return AppSettings::Get().IsWindowedFrameless();
+}
+
+void HomeViewModel::IsWindowedFrameless(bool value) {
+	AppSettings& settings = AppSettings::Get();
+
+	if (settings.IsWindowedFrameless() == value) {
+		return;
+	}
+
+	settings.IsWindowedFrameless(value);
+	RaisePropertyChanged(L"IsWindowedFrameless");
+}
+
 bool HomeViewModel::IsInlineParams() const noexcept {
 	return AppSettings::Get().IsInlineParams();
 }

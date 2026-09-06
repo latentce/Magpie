@@ -1063,4 +1063,10 @@
   <data name="Home_Advanced_KeepScreenOn.Header" xml:space="preserve">
     <value>Keep screen on while scaling</value>
   </data>
+  <data name="Home_Advanced_WindowedFrameless.Header" xml:space="preserve">
+    <value>Frameless windowed scaling</value>
+  </data>
+  <data name="Home_Advanced_WindowedFrameless.Description" xml:space="preserve">
+    <value>Remove the window border and rounded corners of the scaling window in windowed mode</value>
+  </data>
 </root>
