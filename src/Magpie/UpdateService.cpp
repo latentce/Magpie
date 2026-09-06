@@ -29,6 +29,34 @@ static constexpr Version MAGPIE_VERSION(MP_MAJOR_VERSION, MP_MINOR_VERSION, MP_P
 
 static constexpr uint32_t MD5_HASH_LENGTH = 16;
 
+// 从版本字符串或 tag 中解析 fork 修订号，如 "0.12.1-fork.2" 返回 2，无 -fork.N 后缀则返回 0
+static uint32_t ParseForkRevision(std::wstring_view str) noexcept {
+	constexpr std::wstring_view MARKER = L"-fork.";
+
+	const size_t pos = str.find(MARKER);
+	if (pos == std::wstring_view::npos) {
+		return 0;
+	}
+
+	uint32_t revision = 0;
+	for (const wchar_t c : str.substr(pos + MARKER.size())) {
+		if (c < L'0' || c > L'9') {
+			break;
+		}
+		revision = revision * 10 + (uint32_t)(c - L'0');
+	}
+	return revision;
+}
+
+// 当前程序的 fork 修订号
+static uint32_t GetForkRevision() noexcept {
+#ifdef MP_VERSION_STRING
+	return ParseForkRevision(WIDEN_STRINGIFY(MP_VERSION_STRING));
+#else
+	return 0;
+#endif
+}
+
 void UpdateService::Initialize() noexcept {
 	// 只有发布版本能检查更新
 #ifdef MP_VERSION_STRING
@@ -65,8 +93,8 @@ fire_and_forget UpdateService::CheckForUpdatesAsync(bool isAutoUpdate) {
 		HttpClient httpClient;
 		IBuffer buffer = co_await httpClient.GetBufferAsync(
 			Uri(AppSettings::Get().IsCheckForPreviewUpdates()
-			? L"https://raw.githubusercontent.com/Blinue/Magpie/dev/version.json"
-			: L"https://raw.githubusercontent.com/Blinue/Magpie/main/version.json"));
+			? L"https://raw.githubusercontent.com/latentce/Magpie/fork/version.json"
+			: L"https://raw.githubusercontent.com/latentce/Magpie/fork/version.json"));
 
 		doc.Parse((const char*)buffer.data(), buffer.Length());
 	} catch (const hresult_error& e) {
@@ -112,14 +140,16 @@ fire_and_forget UpdateService::CheckForUpdatesAsync(bool isAutoUpdate) {
 		co_return;
 	}
 
-	if (remoteVersion <= MAGPIE_VERSION) {
-		_Status(UpdateStatus::NoUpdate);
-		co_return;
-	}
-
 	if (!JsonHelper::ReadString(rootObj, "tag", _tag, true) || _tag.empty()) {
 		Logger::Get().Error("解析 tag 失败");
 		_Status(UpdateStatus::ErrorWhileChecking);
+		co_return;
+	}
+
+	// 数字版本相同时比较 tag 中的 fork 修订号（-fork.N 后缀）
+	if (remoteVersion < MAGPIE_VERSION || (remoteVersion == MAGPIE_VERSION &&
+		ParseForkRevision(_tag) <= GetForkRevision())) {
+		_Status(UpdateStatus::NoUpdate);
 		co_return;
 	}
 
