@@ -75,6 +75,9 @@ struct HomeViewModel : HomeViewModelT<HomeViewModel>, wil::notify_property_chang
 	bool IsSimulateExclusiveFullscreen() const noexcept;
 	void IsSimulateExclusiveFullscreen(bool value);
 
+	bool IsWindowedFrameless() const noexcept;
+	void IsWindowedFrameless(bool value);
+
 	bool IsInlineParams() const noexcept;
 	void IsInlineParams(bool value);
 

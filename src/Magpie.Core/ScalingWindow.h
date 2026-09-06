@@ -158,6 +158,8 @@ private:
 
 	bool _IsBorderless() const noexcept;
 
+	SrcWindowKind _WindowKindForFrame() const noexcept;
+
 	void _UpdateRendererRect() noexcept;
 
 	bool _EnsureCaptionVisibleOnScreen() noexcept;

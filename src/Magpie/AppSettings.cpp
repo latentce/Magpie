@@ -639,6 +639,8 @@ rapidjson::StringBuffer AppSettings::_WriteConfigJson() const noexcept {
 	writer.Bool(_isKeepScreenOn);
 	writer.Key("simulateExclusiveFullscreen");
 	writer.Bool(_isSimulateExclusiveFullscreen);
+	writer.Key("windowedFrameless");
+	writer.Bool(_isWindowedFrameless);
 	writer.Key("alwaysRunAsAdmin");
 	writer.Bool(_isAlwaysRunAsAdmin);
 	writer.Key("showNotifyIcon");
@@ -830,6 +832,7 @@ void AppSettings::_LoadSettings(const rapidjson::GenericObject<true, rapidjson::
 	JsonHelper::ReadBool(root, "allowScalingMaximized", _isAllowScalingMaximized);
 	JsonHelper::ReadBool(root, "keepScreenOn", _isKeepScreenOn);
 	JsonHelper::ReadBool(root, "simulateExclusiveFullscreen", _isSimulateExclusiveFullscreen);
+	JsonHelper::ReadBool(root, "windowedFrameless", _isWindowedFrameless);
 	if (!JsonHelper::ReadBool(root, "alwaysRunAsAdmin", _isAlwaysRunAsAdmin, true)) {
 		// v0.10.0-preview1 使用 alwaysRunAsElevated
 		JsonHelper::ReadBool(root, "alwaysRunAsElevated", _isAlwaysRunAsAdmin);

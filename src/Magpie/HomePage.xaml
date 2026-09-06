@@ -253,6 +253,13 @@
 				              IsClosable="False"
 				              IsOpen="{x:Bind ViewModel.IsSimulateExclusiveFullscreen, Mode=OneWay}"
 				              Severity="Warning" />
+				<local:SettingsCard x:Uid="Home_Advanced_WindowedFrameless">
+					<local:SettingsCard.HeaderIcon>
+						<FontIcon Glyph="&#xE737;" />
+					</local:SettingsCard.HeaderIcon>
+					<ToggleSwitch x:Uid="ToggleSwitch"
+					              IsOn="{x:Bind ViewModel.IsWindowedFrameless, Mode=TwoWay}" />
+				</local:SettingsCard>
 				<local:SettingsCard x:Uid="Home_Advanced_InlineParams">
 					<local:SettingsCard.HeaderIcon>
 						<FontIcon Glyph="&#xE9E9;" />
