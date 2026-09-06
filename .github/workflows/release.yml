@@ -47,6 +47,11 @@ jobs:
         $tag = "${{ inputs.tag }}" -eq "" ? "v${{ inputs.major }}.${{ inputs.minor }}.${{ inputs.patch }}" : "${{ inputs.tag }}"
         echo "tag=$tag" >> $env:GITHUB_OUTPUT
 
+    - name: Restore signing certificate
+      env:
+        PFX_BASE64: ${{ secrets.MAGPIE_PFX_BASE64 }}
+      run: '[IO.File]::WriteAllBytes("$PWD\certs\Magpie.pfx", [Convert]::FromBase64String($env:PFX_BASE64))'
+
     - name: Build
       run: |
         $versionString = "${{ steps.tag.outputs.tag }}" -replace "^v(?=\d)", ""
@@ -62,6 +67,10 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The default GITHUB_TOKEN persisted by checkout is read-only and
+          # overrides the token release.py embeds in the remote URL
+          token: ${{ secrets.CONTENTS_ACCESS_TOKEN }}
 
       - uses: actions/setup-python@v7
         with:
