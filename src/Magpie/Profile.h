@@ -60,6 +60,7 @@ struct Profile {
 	DEFINE_FLAG_ACCESSOR(Is3DGameMode, ScalingFlags::Is3DGameMode, scalingFlags)
 	DEFINE_FLAG_ACCESSOR(IsCaptureTitleBar, ScalingFlags::CaptureTitleBar, scalingFlags)
 	DEFINE_FLAG_ACCESSOR(IsAdjustCursorSpeed, ScalingFlags::AdjustCursorSpeed, scalingFlags)
+	DEFINE_FLAG_ACCESSOR(IsCaptureCompatibleCursorHiding, ScalingFlags::CaptureCompatibleCursorHiding, scalingFlags)
 	DEFINE_FLAG_ACCESSOR(IsDirectFlipDisabled, ScalingFlags::DisableDirectFlip, scalingFlags)
 
 	// 默认规则 name、pathRule 和 classNameRule 均为空

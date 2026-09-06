@@ -534,6 +534,12 @@
   <data name="Profile_Cursor.Header" xml:space="preserve">
     <value>Cursor</value>
   </data>
+  <data name="Profile_Cursor_CaptureCompatibleHiding.Header" xml:space="preserve">
+    <value>Capture-compatible cursor hiding</value>
+  </data>
+  <data name="Profile_Cursor_CaptureCompatibleHiding.Description" xml:space="preserve">
+    <value>Also hide the system cursor by making it transparent. Prevents a duplicate cursor in recording and streaming software that ignores the hidden cursor state. Only standard system cursors are affected.</value>
+  </data>
   <data name="Profile_Cursor_DrawCursor_AdjustCursorSpeed.Header" xml:space="preserve">
     <value>Adjust cursor speed while scaled</value>
   </data>

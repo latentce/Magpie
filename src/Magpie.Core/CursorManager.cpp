@@ -224,7 +224,161 @@ void CursorManager::_ShowSystemCursor(bool show, bool onDestory) {
 		}
 	}
 
+	// ShowSystemCursor 只是全局隐藏光标的渲染，WGC 等捕获 API 依然会把隐藏的光标
+	// 合成到画面中，导致录屏/串流软件中出现两个光标。开启“兼容录屏和串流软件”后
+	// 还需将系统光标替换为透明图像
+	if (ScalingWindow::Get().Options().IsCaptureCompatibleCursorHiding()) {
+		if (show) {
+			_RestoreSystemCursors();
+		} else {
+			_ReplaceSystemCursors();
+		}
+	}
+
 	ScalingWindow::Get().Renderer().OnCursorVisibilityChanged(show, onDestory);
+}
+
+// 标准系统光标的 OCR_* 标识符，数值和对应的 IDC_* 相同。
+// 使用字面量以避免定义 OEMRESOURCE
+static constexpr UINT SYSTEM_CURSOR_IDS[] = {
+	32512,	// OCR_NORMAL
+	32513,	// OCR_IBEAM
+	32514,	// OCR_WAIT
+	32515,	// OCR_CROSS
+	32516,	// OCR_UP
+	32642,	// OCR_SIZENWSE
+	32643,	// OCR_SIZENESW
+	32644,	// OCR_SIZEWE
+	32645,	// OCR_SIZENS
+	32646,	// OCR_SIZEALL
+	32648,	// OCR_NO
+	32649,	// OCR_HAND
+	32650	// OCR_APPSTARTING
+};
+
+// 替换系统光标后创建标记文件，还原后删除。如果因崩溃未能还原，下次启动时
+// 检测到标记文件即可恢复系统光标
+static const wchar_t* CursorReplacementMarkerPath() noexcept {
+	static const std::wstring path = []() -> std::wstring {
+		wchar_t tempPath[MAX_PATH];
+		const DWORD len = GetTempPath(MAX_PATH, tempPath);
+		if (len == 0 || len >= MAX_PATH) {
+			Logger::Get().Win32Error("GetTempPath 失败");
+			return {};
+		}
+		return std::wstring(tempPath, len) + L"Magpie-SystemCursorsReplaced";
+	}();
+	return path.empty() ? nullptr : path.c_str();
+}
+
+static HCURSOR CreateTransparentCursor() noexcept {
+	const int cx = GetSystemMetrics(SM_CXCURSOR);
+	const int cy = GetSystemMetrics(SM_CYCURSOR);
+
+	// AND 掩码全 1、XOR 掩码全 0 表示完全透明。故意分配了过大的缓冲区，
+	// 因此无需处理位平面的对齐
+	std::vector<BYTE> andPlane((size_t)cx * cy, 0xFF);
+	std::vector<BYTE> xorPlane((size_t)cx * cy, 0);
+
+	HCURSOR result = CreateCursor(
+		GetModuleHandle(nullptr), 0, 0, cx, cy, andPlane.data(), xorPlane.data());
+	if (!result) {
+		Logger::Get().Win32Error("CreateCursor 失败");
+	}
+	return result;
+}
+
+void CursorManager::RestoreSystemCursorsAfterCrash() noexcept {
+	const wchar_t* markerPath = CursorReplacementMarkerPath();
+	if (!markerPath || !Win32Helper::FileExists(markerPath)) {
+		return;
+	}
+
+	Logger::Get().Info("检测到上次运行未还原系统光标，正在还原");
+
+	if (SystemParametersInfo(SPI_SETCURSORS, 0, nullptr, 0)) {
+		DeleteFile(markerPath);
+	} else {
+		Logger::Get().Win32Error("SPI_SETCURSORS 失败");
+	}
+}
+
+HCURSOR CursorManager::OriginalCursorImage(HCURSOR hCursor) const noexcept {
+	if (!_isSystemCursorsReplaced) {
+		return NULL;
+	}
+
+	for (const auto& [hShared, hCopy] : _originalCursors) {
+		if (hShared == hCursor) {
+			return hCopy.get();
+		}
+	}
+	return NULL;
+}
+
+void CursorManager::_ReplaceSystemCursors() noexcept {
+	if (_isSystemCursorsReplaced) {
+		return;
+	}
+	_isSystemCursorsReplaced = true;
+
+	// 先创建标记文件再替换，确保中途崩溃也能在下次启动时还原
+	if (const wchar_t* markerPath = CursorReplacementMarkerPath()) {
+		Win32Helper::WriteFile(markerPath, {});
+	}
+
+	for (UINT id : SYSTEM_CURSOR_IDS) {
+		// LoadCursor 返回共享句柄，SetSystemCursor 不会改变系统光标的句柄，
+		// 因此 GetCursorInfo 返回的仍是这些句柄
+		HCURSOR hShared = LoadCursor(NULL, MAKEINTRESOURCE(id));
+		if (!hShared) {
+			continue;
+		}
+
+		// 首次替换前保存原始图像的副本，供 CursorDrawer 解析光标形状
+		bool isSaved = false;
+		for (const auto& pair : _originalCursors) {
+			if (pair.first == hShared) {
+				isSaved = true;
+				break;
+			}
+		}
+		if (!isSaved) {
+			if (HCURSOR hCopy = CopyCursor(hShared)) {
+				_originalCursors.emplace_back(hShared, wil::unique_hcursor(hCopy));
+			} else {
+				Logger::Get().Win32Error("CopyCursor 失败");
+			}
+		}
+
+		HCURSOR hTransparent = CreateTransparentCursor();
+		if (!hTransparent) {
+			continue;
+		}
+
+		// SetSystemCursor 成功后系统会接管传入的句柄并负责销毁
+		if (!SetSystemCursor(hTransparent, id)) {
+			Logger::Get().Win32Error("SetSystemCursor 失败");
+			DestroyCursor(hTransparent);
+		}
+	}
+}
+
+void CursorManager::_RestoreSystemCursors() noexcept {
+	if (!_isSystemCursorsReplaced) {
+		return;
+	}
+	_isSystemCursorsReplaced = false;
+
+	// 从注册表重新加载系统光标
+	if (!SystemParametersInfo(SPI_SETCURSORS, 0, nullptr, 0)) {
+		Logger::Get().Win32Error("SPI_SETCURSORS 失败");
+		return;
+	}
+
+	if (const wchar_t* markerPath = CursorReplacementMarkerPath()) {
+		DeleteFile(markerPath);
+	}
 }
 
 void CursorManager::_AdjustCursorSpeed() noexcept {

@@ -373,8 +373,15 @@ const CursorDrawer::_CursorInfo* CursorDrawer::_ResolveCursor(HCURSOR hCursor) n
 		return &it->second;
 	}
 
+	// 若该系统光标已被替换为透明光标，改为解析替换前保存的原始图像，
+	// 但仍以共享句柄为键缓存
+	HCURSOR hResolveTarget = hCursor;
+	if (HCURSOR hOrigin = ScalingWindow::Get().CursorManager().OriginalCursorImage(hCursor)) {
+		hResolveTarget = hOrigin;
+	}
+
 	ICONINFO iconInfo{};
-	if (!GetIconInfo(hCursor, &iconInfo)) {
+	if (!GetIconInfo(hResolveTarget, &iconInfo)) {
 		Logger::Get().Win32Error("GetIconInfo 失败");
 		return nullptr;
 	}
