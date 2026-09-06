@@ -501,6 +501,14 @@
 					<ToggleSwitch x:Uid="ToggleSwitch"
 					              IsOn="{x:Bind ViewModel.IsAdjustCursorSpeed, Mode=TwoWay}" />
 				</local:SettingsCard>
+				<local:SettingsCard x:Uid="Profile_Cursor_CaptureCompatibleHiding"
+				                    IsWrapEnabled="True">
+					<local:SettingsCard.HeaderIcon>
+						<FontIcon Glyph="&#xE714;" />
+					</local:SettingsCard.HeaderIcon>
+					<ToggleSwitch x:Uid="ToggleSwitch"
+					              IsOn="{x:Bind ViewModel.IsCaptureCompatibleCursorHiding, Mode=TwoWay}" />
+				</local:SettingsCard>
 			</local:SettingsGroup>
 			<local:SettingsGroup x:Uid="Profile_Advanced">
 				<local:SettingsCard x:Name="LaunchParametersSettingsCard"

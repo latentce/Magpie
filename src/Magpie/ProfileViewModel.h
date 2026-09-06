@@ -122,6 +122,9 @@ struct ProfileViewModel : ProfileViewModelT<ProfileViewModel>,
 	bool IsAdjustCursorSpeed() const noexcept;
 	void IsAdjustCursorSpeed(bool value);
 
+	bool IsCaptureCompatibleCursorHiding() const noexcept;
+	void IsCaptureCompatibleCursorHiding(bool value);
+
 	int CursorScaling() const noexcept;
 	void CursorScaling(int value);
 

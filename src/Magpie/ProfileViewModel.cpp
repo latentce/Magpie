@@ -683,6 +683,21 @@ void ProfileViewModel::IsAdjustCursorSpeed(bool value) {
 	RaisePropertyChanged(L"IsAdjustCursorSpeed");
 }
 
+bool ProfileViewModel::IsCaptureCompatibleCursorHiding() const noexcept {
+	return _data->IsCaptureCompatibleCursorHiding();
+}
+
+void ProfileViewModel::IsCaptureCompatibleCursorHiding(bool value) {
+	if (_data->IsCaptureCompatibleCursorHiding() == value) {
+		return;
+	}
+
+	_data->IsCaptureCompatibleCursorHiding(value);
+	AppSettings::Get().SaveAsync();
+
+	RaisePropertyChanged(L"IsCaptureCompatibleCursorHiding");
+}
+
 int ProfileViewModel::CursorScaling() const noexcept {
 	return (int)_data->cursorScaling;
 }

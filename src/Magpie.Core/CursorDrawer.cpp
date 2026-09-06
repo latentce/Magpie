@@ -373,8 +373,15 @@ const CursorDrawer::_CursorInfo* CursorDrawer::_ResolveCursor(HCURSOR hCursor) n
 		return &it->second;
 	}
 
+	// A replaced system cursor resolves to its saved original image, still cached
+	// under the shared handle
+	HCURSOR hResolveTarget = hCursor;
+	if (HCURSOR hOrigin = ScalingWindow::Get().CursorManager().OriginalCursorImage(hCursor)) {
+		hResolveTarget = hOrigin;
+	}
+
 	ICONINFO iconInfo{};
-	if (!GetIconInfo(hCursor, &iconInfo)) {
+	if (!GetIconInfo(hResolveTarget, &iconInfo)) {
 		Logger::Get().Win32Error("GetIconInfo 失败");
 		return nullptr;
 	}

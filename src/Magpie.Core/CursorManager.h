@@ -1,4 +1,5 @@
 #pragma once
+#include "SmallVector.h"
 
 namespace Magpie {
 
@@ -9,6 +10,9 @@ public:
 	CursorManager(CursorManager&&) = delete;
 
 	~CursorManager() noexcept;
+
+	// Restores replaced system cursors left over from a crashed run. Call at startup
+	static void RestoreSystemCursorsAfterCrash() noexcept;
 
 	void Update() noexcept;
 
@@ -56,8 +60,15 @@ public:
 		return _lastCompletedHitTestResult;
 	}
 
+	// Returns the saved original image of a replaced system cursor, or NULL
+	HCURSOR OriginalCursorImage(HCURSOR hCursor) const noexcept;
+
 private:
 	void _ShowSystemCursor(bool show, bool onDestory = false);
+
+	void _ReplaceSystemCursors() noexcept;
+
+	void _RestoreSystemCursors() noexcept;
 
 	void _AdjustCursorSpeed() noexcept;
 
@@ -114,6 +125,10 @@ private:
 	bool _isCapturedOnOverlay = false;
 
 	bool _isSystemCursorShown = true;
+
+	// Original system cursor images saved before replacement, keyed by shared handle
+	SmallVector<std::pair<HCURSOR, wil::unique_hcursor>, 0> _originalCursors;
+	bool _isSystemCursorsReplaced = false;
 
 	static inline const HCURSOR _hDiagonalSize1Cursor = LoadCursor(NULL, IDC_SIZENWSE);
 	static inline const HCURSOR _hDiagonalSize2Cursor = LoadCursor(NULL, IDC_SIZENESW);

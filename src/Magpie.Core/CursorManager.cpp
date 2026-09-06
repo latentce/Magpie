@@ -224,7 +224,158 @@ void CursorManager::_ShowSystemCursor(bool show, bool onDestory) {
 		}
 	}
 
+	// Capture APIs like WGC composite the cursor even when ShowSystemCursor hides it,
+	// so additionally replace the system cursors with transparent images
+	if (ScalingWindow::Get().Options().IsCaptureCompatibleCursorHiding()) {
+		if (show) {
+			_RestoreSystemCursors();
+		} else {
+			_ReplaceSystemCursors();
+		}
+	}
+
 	ScalingWindow::Get().Renderer().OnCursorVisibilityChanged(show, onDestory);
+}
+
+// OCR_* ids of the standard system cursors (same values as IDC_*); literals avoid OEMRESOURCE
+static constexpr UINT SYSTEM_CURSOR_IDS[] = {
+	32512,	// OCR_NORMAL
+	32513,	// OCR_IBEAM
+	32514,	// OCR_WAIT
+	32515,	// OCR_CROSS
+	32516,	// OCR_UP
+	32642,	// OCR_SIZENWSE
+	32643,	// OCR_SIZENESW
+	32644,	// OCR_SIZEWE
+	32645,	// OCR_SIZENS
+	32646,	// OCR_SIZEALL
+	32648,	// OCR_NO
+	32649,	// OCR_HAND
+	32650	// OCR_APPSTARTING
+};
+
+// Marker file that exists while the system cursors are replaced, used for crash recovery
+static const wchar_t* CursorReplacementMarkerPath() noexcept {
+	static const std::wstring path = []() -> std::wstring {
+		wchar_t tempPath[MAX_PATH];
+		const DWORD len = GetTempPath(MAX_PATH, tempPath);
+		if (len == 0 || len >= MAX_PATH) {
+			Logger::Get().Win32Error("GetTempPath failed");
+			return {};
+		}
+		return std::wstring(tempPath, len) + L"Magpie-SystemCursorsReplaced";
+	}();
+	return path.empty() ? nullptr : path.c_str();
+}
+
+static HCURSOR CreateTransparentCursor() noexcept {
+	const int cx = GetSystemMetrics(SM_CXCURSOR);
+	const int cy = GetSystemMetrics(SM_CYCURSOR);
+
+	// All-ones AND mask + all-zeros XOR mask = fully transparent; the oversized
+	// buffers make bit plane alignment irrelevant
+	std::vector<BYTE> andPlane((size_t)cx * cy, 0xFF);
+	std::vector<BYTE> xorPlane((size_t)cx * cy, 0);
+
+	HCURSOR result = CreateCursor(
+		GetModuleHandle(nullptr), 0, 0, cx, cy, andPlane.data(), xorPlane.data());
+	if (!result) {
+		Logger::Get().Win32Error("CreateCursor failed");
+	}
+	return result;
+}
+
+void CursorManager::RestoreSystemCursorsAfterCrash() noexcept {
+	const wchar_t* markerPath = CursorReplacementMarkerPath();
+	if (!markerPath || !Win32Helper::FileExists(markerPath)) {
+		return;
+	}
+
+	Logger::Get().Info("The previous run failed to restore the system cursors, restoring them now");
+
+	if (SystemParametersInfo(SPI_SETCURSORS, 0, nullptr, 0)) {
+		DeleteFile(markerPath);
+	} else {
+		Logger::Get().Win32Error("SPI_SETCURSORS failed");
+	}
+}
+
+HCURSOR CursorManager::OriginalCursorImage(HCURSOR hCursor) const noexcept {
+	if (!_isSystemCursorsReplaced) {
+		return NULL;
+	}
+
+	for (const auto& [hShared, hCopy] : _originalCursors) {
+		if (hShared == hCursor) {
+			return hCopy.get();
+		}
+	}
+	return NULL;
+}
+
+void CursorManager::_ReplaceSystemCursors() noexcept {
+	if (_isSystemCursorsReplaced) {
+		return;
+	}
+	_isSystemCursorsReplaced = true;
+
+	// Create the marker before replacing so a crash midway is still recoverable
+	if (const wchar_t* markerPath = CursorReplacementMarkerPath()) {
+		Win32Helper::WriteFile(markerPath, {});
+	}
+
+	for (UINT id : SYSTEM_CURSOR_IDS) {
+		// SetSystemCursor doesn't change the shared handle returned by LoadCursor,
+		// so GetCursorInfo keeps returning these handles after the replacement
+		HCURSOR hShared = LoadCursor(NULL, MAKEINTRESOURCE(id));
+		if (!hShared) {
+			continue;
+		}
+
+		// Save the original image so CursorDrawer can still resolve the real shape
+		bool isSaved = false;
+		for (const auto& pair : _originalCursors) {
+			if (pair.first == hShared) {
+				isSaved = true;
+				break;
+			}
+		}
+		if (!isSaved) {
+			if (HCURSOR hCopy = CopyCursor(hShared)) {
+				_originalCursors.emplace_back(hShared, wil::unique_hcursor(hCopy));
+			} else {
+				Logger::Get().Win32Error("CopyCursor failed");
+			}
+		}
+
+		HCURSOR hTransparent = CreateTransparentCursor();
+		if (!hTransparent) {
+			continue;
+		}
+
+		// On success SetSystemCursor takes ownership of the handle
+		if (!SetSystemCursor(hTransparent, id)) {
+			Logger::Get().Win32Error("SetSystemCursor failed");
+			DestroyCursor(hTransparent);
+		}
+	}
+}
+
+void CursorManager::_RestoreSystemCursors() noexcept {
+	if (!_isSystemCursorsReplaced) {
+		return;
+	}
+	_isSystemCursorsReplaced = false;
+
+	// SPI_SETCURSORS reloads the system cursors from the registry
+	if (!SystemParametersInfo(SPI_SETCURSORS, 0, nullptr, 0)) {
+		Logger::Get().Win32Error("SPI_SETCURSORS failed");
+		return;
+	}
+
+	if (const wchar_t* markerPath = CursorReplacementMarkerPath()) {
+		DeleteFile(markerPath);
+	}
 }
 
 void CursorManager::_AdjustCursorSpeed() noexcept {

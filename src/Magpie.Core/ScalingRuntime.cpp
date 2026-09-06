@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ScalingRuntime.h"
 #include "CommonSharedConstants.h"
+#include "CursorManager.h"
 #include "Logger.h"
 #include "ScalingWindow.h"
 #include "Win32Helper.h"
@@ -11,6 +12,7 @@ using namespace std::chrono;
 namespace Magpie {
 
 ScalingRuntime::ScalingRuntime() : _scalingThread(&ScalingRuntime::_ScalingThreadProc, this) {
+	CursorManager::RestoreSystemCursorsAfterCrash();
 }
 
 ScalingRuntime::~ScalingRuntime() {
