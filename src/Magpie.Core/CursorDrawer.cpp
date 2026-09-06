@@ -373,8 +373,9 @@ const CursorDrawer::_CursorInfo* CursorDrawer::_ResolveCursor(HCURSOR hCursor) n
 		return &it->second;
 	}
 
-	// 若该系统光标已被替换为透明光标，改为解析替换前保存的原始图像，
-	// 但仍以共享句柄为键缓存
+	// If this system cursor has been replaced with a transparent one, resolve the
+	// original image saved before the replacement, but still cache the result
+	// under the shared handle
 	HCURSOR hResolveTarget = hCursor;
 	if (HCURSOR hOrigin = ScalingWindow::Get().CursorManager().OriginalCursorImage(hCursor)) {
 		hResolveTarget = hOrigin;

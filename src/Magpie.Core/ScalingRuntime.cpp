@@ -12,7 +12,8 @@ using namespace std::chrono;
 namespace Magpie {
 
 ScalingRuntime::ScalingRuntime() : _scalingThread(&ScalingRuntime::_ScalingThreadProc, this) {
-	// 上次运行时若因崩溃未能还原被替换的系统光标，在此还原
+	// Restore the replaced system cursors if a crash during a previous run
+	// prevented them from being restored
 	CursorManager::RestoreSystemCursorsAfterCrash();
 }
 

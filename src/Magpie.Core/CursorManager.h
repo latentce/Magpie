@@ -11,7 +11,8 @@ public:
 
 	~CursorManager() noexcept;
 
-	// 上次运行时若因崩溃而未能还原被替换的系统光标，将其还原。应在启动时调用
+	// Restores the replaced system cursors if a crash during a previous run
+	// prevented them from being restored. Should be called at startup
 	static void RestoreSystemCursorsAfterCrash() noexcept;
 
 	void Update() noexcept;
@@ -60,7 +61,8 @@ public:
 		return _lastCompletedHitTestResult;
 	}
 
-	// 若 hCursor 是已被替换为透明光标的系统光标，返回其原始图像的副本，否则返回 NULL
+	// If hCursor is a system cursor that has been replaced with a transparent
+	// one, returns a copy of its original image, otherwise returns NULL
 	HCURSOR OriginalCursorImage(HCURSOR hCursor) const noexcept;
 
 private:
@@ -126,7 +128,8 @@ private:
 
 	bool _isSystemCursorShown = true;
 
-	// 系统光标被替换为透明光标前保存的原始图像副本，键为共享光标句柄
+	// Copies of the original images of the system cursors saved before they were
+	// replaced with transparent ones, keyed by the shared cursor handles
 	SmallVector<std::pair<HCURSOR, wil::unique_hcursor>, 0> _originalCursors;
 	bool _isSystemCursorsReplaced = false;
 

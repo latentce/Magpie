@@ -224,9 +224,10 @@ void CursorManager::_ShowSystemCursor(bool show, bool onDestory) {
 		}
 	}
 
-	// ShowSystemCursor 只是全局隐藏光标的渲染，WGC 等捕获 API 依然会把隐藏的光标
-	// 合成到画面中，导致录屏/串流软件中出现两个光标。开启“兼容录屏和串流软件”后
-	// 还需将系统光标替换为透明图像
+	// ShowSystemCursor only hides cursor rendering globally. Capture APIs such as
+	// WGC ignore the hidden state and composite the cursor into captured frames
+	// anyway, so with capture-compatible cursor hiding enabled the system cursors
+	// are additionally replaced with transparent images.
 	if (ScalingWindow::Get().Options().IsCaptureCompatibleCursorHiding()) {
 		if (show) {
 			_RestoreSystemCursors();
@@ -238,8 +239,8 @@ void CursorManager::_ShowSystemCursor(bool show, bool onDestory) {
 	ScalingWindow::Get().Renderer().OnCursorVisibilityChanged(show, onDestory);
 }
 
-// 标准系统光标的 OCR_* 标识符，数值和对应的 IDC_* 相同。
-// 使用字面量以避免定义 OEMRESOURCE
+// OCR_* identifiers of the standard system cursors, numerically identical to the
+// corresponding IDC_* values. Literals are used to avoid defining OEMRESOURCE
 static constexpr UINT SYSTEM_CURSOR_IDS[] = {
 	32512,	// OCR_NORMAL
 	32513,	// OCR_IBEAM
@@ -256,14 +257,15 @@ static constexpr UINT SYSTEM_CURSOR_IDS[] = {
 	32650	// OCR_APPSTARTING
 };
 
-// 替换系统光标后创建标记文件，还原后删除。如果因崩溃未能还原，下次启动时
-// 检测到标记文件即可恢复系统光标
+// A marker file is created after replacing the system cursors and deleted after
+// restoring them. If a crash prevents the restore, the marker is detected on the
+// next launch and the system cursors are recovered
 static const wchar_t* CursorReplacementMarkerPath() noexcept {
 	static const std::wstring path = []() -> std::wstring {
 		wchar_t tempPath[MAX_PATH];
 		const DWORD len = GetTempPath(MAX_PATH, tempPath);
 		if (len == 0 || len >= MAX_PATH) {
-			Logger::Get().Win32Error("GetTempPath 失败");
+			Logger::Get().Win32Error("GetTempPath failed");
 			return {};
 		}
 		return std::wstring(tempPath, len) + L"Magpie-SystemCursorsReplaced";
@@ -275,15 +277,16 @@ static HCURSOR CreateTransparentCursor() noexcept {
 	const int cx = GetSystemMetrics(SM_CXCURSOR);
 	const int cy = GetSystemMetrics(SM_CYCURSOR);
 
-	// AND 掩码全 1、XOR 掩码全 0 表示完全透明。故意分配了过大的缓冲区，
-	// 因此无需处理位平面的对齐
+	// An AND mask of all ones and an XOR mask of all zeros yield a fully
+	// transparent cursor. The buffers are deliberately oversized so bit plane
+	// alignment doesn't need to be handled
 	std::vector<BYTE> andPlane((size_t)cx * cy, 0xFF);
 	std::vector<BYTE> xorPlane((size_t)cx * cy, 0);
 
 	HCURSOR result = CreateCursor(
 		GetModuleHandle(nullptr), 0, 0, cx, cy, andPlane.data(), xorPlane.data());
 	if (!result) {
-		Logger::Get().Win32Error("CreateCursor 失败");
+		Logger::Get().Win32Error("CreateCursor failed");
 	}
 	return result;
 }
@@ -294,12 +297,12 @@ void CursorManager::RestoreSystemCursorsAfterCrash() noexcept {
 		return;
 	}
 
-	Logger::Get().Info("检测到上次运行未还原系统光标，正在还原");
+	Logger::Get().Info("The previous run failed to restore the system cursors, restoring them now");
 
 	if (SystemParametersInfo(SPI_SETCURSORS, 0, nullptr, 0)) {
 		DeleteFile(markerPath);
 	} else {
-		Logger::Get().Win32Error("SPI_SETCURSORS 失败");
+		Logger::Get().Win32Error("SPI_SETCURSORS failed");
 	}
 }
 
@@ -322,20 +325,23 @@ void CursorManager::_ReplaceSystemCursors() noexcept {
 	}
 	_isSystemCursorsReplaced = true;
 
-	// 先创建标记文件再替换，确保中途崩溃也能在下次启动时还原
+	// Create the marker file before replacing so that a crash midway can still
+	// be recovered from on the next launch
 	if (const wchar_t* markerPath = CursorReplacementMarkerPath()) {
 		Win32Helper::WriteFile(markerPath, {});
 	}
 
 	for (UINT id : SYSTEM_CURSOR_IDS) {
-		// LoadCursor 返回共享句柄，SetSystemCursor 不会改变系统光标的句柄，
-		// 因此 GetCursorInfo 返回的仍是这些句柄
+		// LoadCursor returns shared handles and SetSystemCursor doesn't change
+		// the handle of a system cursor, so GetCursorInfo keeps returning these
+		// handles after the replacement
 		HCURSOR hShared = LoadCursor(NULL, MAKEINTRESOURCE(id));
 		if (!hShared) {
 			continue;
 		}
 
-		// 首次替换前保存原始图像的副本，供 CursorDrawer 解析光标形状
+		// Save a copy of the original image before the first replacement so
+		// CursorDrawer can still resolve the real cursor shape
 		bool isSaved = false;
 		for (const auto& pair : _originalCursors) {
 			if (pair.first == hShared) {
@@ -347,7 +353,7 @@ void CursorManager::_ReplaceSystemCursors() noexcept {
 			if (HCURSOR hCopy = CopyCursor(hShared)) {
 				_originalCursors.emplace_back(hShared, wil::unique_hcursor(hCopy));
 			} else {
-				Logger::Get().Win32Error("CopyCursor 失败");
+				Logger::Get().Win32Error("CopyCursor failed");
 			}
 		}
 
@@ -356,9 +362,10 @@ void CursorManager::_ReplaceSystemCursors() noexcept {
 			continue;
 		}
 
-		// SetSystemCursor 成功后系统会接管传入的句柄并负责销毁
+		// On success SetSystemCursor takes ownership of the passed handle and
+		// destroys it itself
 		if (!SetSystemCursor(hTransparent, id)) {
-			Logger::Get().Win32Error("SetSystemCursor 失败");
+			Logger::Get().Win32Error("SetSystemCursor failed");
 			DestroyCursor(hTransparent);
 		}
 	}
@@ -370,9 +377,9 @@ void CursorManager::_RestoreSystemCursors() noexcept {
 	}
 	_isSystemCursorsReplaced = false;
 
-	// 从注册表重新加载系统光标
+	// Reload the system cursors from the registry
 	if (!SystemParametersInfo(SPI_SETCURSORS, 0, nullptr, 0)) {
-		Logger::Get().Win32Error("SPI_SETCURSORS 失败");
+		Logger::Get().Win32Error("SPI_SETCURSORS failed");
 		return;
 	}
 
