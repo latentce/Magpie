@@ -11,8 +11,7 @@ public:
 
 	~CursorManager() noexcept;
 
-	// Restores the replaced system cursors if a crash during a previous run
-	// prevented them from being restored. Should be called at startup
+	// Restores replaced system cursors left over from a crashed run. Call at startup
 	static void RestoreSystemCursorsAfterCrash() noexcept;
 
 	void Update() noexcept;
@@ -61,8 +60,7 @@ public:
 		return _lastCompletedHitTestResult;
 	}
 
-	// If hCursor is a system cursor that has been replaced with a transparent
-	// one, returns a copy of its original image, otherwise returns NULL
+	// Returns the saved original image of a replaced system cursor, or NULL
 	HCURSOR OriginalCursorImage(HCURSOR hCursor) const noexcept;
 
 private:
@@ -128,8 +126,7 @@ private:
 
 	bool _isSystemCursorShown = true;
 
-	// Copies of the original images of the system cursors saved before they were
-	// replaced with transparent ones, keyed by the shared cursor handles
+	// Original system cursor images saved before replacement, keyed by shared handle
 	SmallVector<std::pair<HCURSOR, wil::unique_hcursor>, 0> _originalCursors;
 	bool _isSystemCursorsReplaced = false;
 

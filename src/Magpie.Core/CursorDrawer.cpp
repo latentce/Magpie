@@ -373,8 +373,7 @@ const CursorDrawer::_CursorInfo* CursorDrawer::_ResolveCursor(HCURSOR hCursor) n
 		return &it->second;
 	}
 
-	// If this system cursor has been replaced with a transparent one, resolve the
-	// original image saved before the replacement, but still cache the result
+	// A replaced system cursor resolves to its saved original image, still cached
 	// under the shared handle
 	HCURSOR hResolveTarget = hCursor;
 	if (HCURSOR hOrigin = ScalingWindow::Get().CursorManager().OriginalCursorImage(hCursor)) {

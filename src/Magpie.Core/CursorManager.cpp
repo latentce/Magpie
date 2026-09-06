@@ -224,10 +224,8 @@ void CursorManager::_ShowSystemCursor(bool show, bool onDestory) {
 		}
 	}
 
-	// ShowSystemCursor only hides cursor rendering globally. Capture APIs such as
-	// WGC ignore the hidden state and composite the cursor into captured frames
-	// anyway, so with capture-compatible cursor hiding enabled the system cursors
-	// are additionally replaced with transparent images.
+	// Capture APIs like WGC composite the cursor even when ShowSystemCursor hides it,
+	// so additionally replace the system cursors with transparent images
 	if (ScalingWindow::Get().Options().IsCaptureCompatibleCursorHiding()) {
 		if (show) {
 			_RestoreSystemCursors();
@@ -239,8 +237,7 @@ void CursorManager::_ShowSystemCursor(bool show, bool onDestory) {
 	ScalingWindow::Get().Renderer().OnCursorVisibilityChanged(show, onDestory);
 }
 
-// OCR_* identifiers of the standard system cursors, numerically identical to the
-// corresponding IDC_* values. Literals are used to avoid defining OEMRESOURCE
+// OCR_* ids of the standard system cursors (same values as IDC_*); literals avoid OEMRESOURCE
 static constexpr UINT SYSTEM_CURSOR_IDS[] = {
 	32512,	// OCR_NORMAL
 	32513,	// OCR_IBEAM
@@ -257,9 +254,7 @@ static constexpr UINT SYSTEM_CURSOR_IDS[] = {
 	32650	// OCR_APPSTARTING
 };
 
-// A marker file is created after replacing the system cursors and deleted after
-// restoring them. If a crash prevents the restore, the marker is detected on the
-// next launch and the system cursors are recovered
+// Marker file that exists while the system cursors are replaced, used for crash recovery
 static const wchar_t* CursorReplacementMarkerPath() noexcept {
 	static const std::wstring path = []() -> std::wstring {
 		wchar_t tempPath[MAX_PATH];
@@ -277,9 +272,8 @@ static HCURSOR CreateTransparentCursor() noexcept {
 	const int cx = GetSystemMetrics(SM_CXCURSOR);
 	const int cy = GetSystemMetrics(SM_CYCURSOR);
 
-	// An AND mask of all ones and an XOR mask of all zeros yield a fully
-	// transparent cursor. The buffers are deliberately oversized so bit plane
-	// alignment doesn't need to be handled
+	// All-ones AND mask + all-zeros XOR mask = fully transparent; the oversized
+	// buffers make bit plane alignment irrelevant
 	std::vector<BYTE> andPlane((size_t)cx * cy, 0xFF);
 	std::vector<BYTE> xorPlane((size_t)cx * cy, 0);
 
@@ -325,23 +319,20 @@ void CursorManager::_ReplaceSystemCursors() noexcept {
 	}
 	_isSystemCursorsReplaced = true;
 
-	// Create the marker file before replacing so that a crash midway can still
-	// be recovered from on the next launch
+	// Create the marker before replacing so a crash midway is still recoverable
 	if (const wchar_t* markerPath = CursorReplacementMarkerPath()) {
 		Win32Helper::WriteFile(markerPath, {});
 	}
 
 	for (UINT id : SYSTEM_CURSOR_IDS) {
-		// LoadCursor returns shared handles and SetSystemCursor doesn't change
-		// the handle of a system cursor, so GetCursorInfo keeps returning these
-		// handles after the replacement
+		// SetSystemCursor doesn't change the shared handle returned by LoadCursor,
+		// so GetCursorInfo keeps returning these handles after the replacement
 		HCURSOR hShared = LoadCursor(NULL, MAKEINTRESOURCE(id));
 		if (!hShared) {
 			continue;
 		}
 
-		// Save a copy of the original image before the first replacement so
-		// CursorDrawer can still resolve the real cursor shape
+		// Save the original image so CursorDrawer can still resolve the real shape
 		bool isSaved = false;
 		for (const auto& pair : _originalCursors) {
 			if (pair.first == hShared) {
@@ -362,8 +353,7 @@ void CursorManager::_ReplaceSystemCursors() noexcept {
 			continue;
 		}
 
-		// On success SetSystemCursor takes ownership of the passed handle and
-		// destroys it itself
+		// On success SetSystemCursor takes ownership of the handle
 		if (!SetSystemCursor(hTransparent, id)) {
 			Logger::Get().Win32Error("SetSystemCursor failed");
 			DestroyCursor(hTransparent);
@@ -377,7 +367,7 @@ void CursorManager::_RestoreSystemCursors() noexcept {
 	}
 	_isSystemCursorsReplaced = false;
 
-	// Reload the system cursors from the registry
+	// SPI_SETCURSORS reloads the system cursors from the registry
 	if (!SystemParametersInfo(SPI_SETCURSORS, 0, nullptr, 0)) {
 		Logger::Get().Win32Error("SPI_SETCURSORS failed");
 		return;
