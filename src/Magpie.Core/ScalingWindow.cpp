@@ -363,6 +363,16 @@ void ScalingWindow::SwitchToolbarState() noexcept {
 	}
 }
 
+void ScalingWindow::SetWindowedAlwaysOnTop(bool value) noexcept {
+	if (_options.IsWindowedAlwaysOnTop() == value) {
+		return;
+	}
+
+	_options.IsWindowedAlwaysOnTop(value);
+	// Apply the new topmost state immediately
+	_UpdateFocusStateAsync();
+}
+
 void ScalingWindow::TakeScreenshot() noexcept {
 	if (_renderer) {
 		const std::vector<const EffectDesc*>& effectDescs = _renderer->ActiveEffectDescs();
@@ -1989,8 +1999,11 @@ bool ScalingWindow::_CalcTopmostState() const noexcept {
 	// 源窗口位于前台时一般将缩放窗口置顶，这是为了防止有些窗口突破 OS 维护的所有者关系
 	// 顺序，如 GH#1232。一个例外是源窗口有弹窗时缩放窗口应在弹窗下方，除了常规弹窗，还
 	// 应检查模拟模态弹窗（见 ScalingService.cpp 的 IsPopupWindow）。
+	// The windowed-mode always-on-top toggle keeps the window topmost even when the
+	// source loses focus, but still yields to the source's popups.
 	return !_options.IsTopmostDisabled() &&
-		_srcTracker.IsFocused() &&
+		(_srcTracker.IsFocused() ||
+			(_options.IsWindowedMode() && _options.IsWindowedAlwaysOnTop())) &&
 		!GetWindow(_srcTracker.Handle(), GW_ENABLEDPOPUP) &&
 		IsWindowEnabled(_srcTracker.Handle());
 }
