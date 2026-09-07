@@ -39,6 +39,8 @@ public:
 
 	void SwitchToolbarState() noexcept;
 
+	void SetWindowedAlwaysOnTop(bool value) noexcept;
+
 	void TakeScreenshot() noexcept;
 
 	void Render() noexcept;

@@ -898,6 +898,9 @@
   <data name="Message_ToolbarNewState" xml:space="preserve">
     <value>Toolbar: {}</value>
   </data>
+  <data name="Overlay_Toolbar_AlwaysOnTop" xml:space="preserve">
+    <value>Always on Top</value>
+  </data>
   <data name="Overlay_Toolbar_Close" xml:space="preserve">
     <value>Stop Scaling</value>
   </data>

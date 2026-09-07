@@ -54,6 +54,7 @@ struct OverlayHelper {
 	// 更改图标后记得更新 FONTS_CACHE_VERSION
 	struct SegoeIcons {
 		static const ImWchar Cancel = 0xE711;
+		static const ImWchar Pin = 0xE718;
 		static const ImWchar Camera = 0xE722;
 		static const ImWchar Favicon = 0xE737;
 		static const ImWchar Remove = 0xE738;
@@ -68,6 +69,7 @@ struct OverlayHelper {
 
 	static constexpr ImWchar ICON_RANGES[] = {
 		SegoeIcons::Cancel, SegoeIcons::Cancel,
+		SegoeIcons::Pin, SegoeIcons::Pin,
 		SegoeIcons::Camera, SegoeIcons::Camera,
 		SegoeIcons::Favicon, SegoeIcons::Favicon,
 		SegoeIcons::Remove, SegoeIcons::Remove,

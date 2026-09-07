@@ -840,8 +840,21 @@ bool OverlayDrawer::_DrawToolbar(uint32_t fps, int& itemId) noexcept {
 		// 源窗口支持最小化时才显示最小化按钮
 		const HWND hwndSrc = ScalingWindow::Get().SrcTracker().Handle();
 		const bool canSrcMinimized = GetWindowStyle(hwndSrc) & WS_MINIMIZEBOX;
+		const bool isWindowedMode = ScalingWindow::Get().Options().IsWindowedMode();
+		const int rightButtonCount = 2 + (canSrcMinimized ? 1 : 0) + (isWindowedMode ? 1 : 0);
 		ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x -
-			((canSrcMinimized ? 3 : 2) * 28 - 4) * _dpiScale);
+			(rightButtonCount * 28 - 4) * _dpiScale);
+
+		// The always-on-top toggle only makes sense in windowed mode
+		if (isWindowedMode) {
+			bool isAlwaysOnTop = ScalingWindow::Get().Options().IsWindowedAlwaysOnTop();
+			const std::string& alwaysOnTopStr = _GetResourceString(L"Overlay_Toolbar_AlwaysOnTop");
+			drawToggleButton(isAlwaysOnTop, OverlayHelper::SegoeIcons::Pin, alwaysOnTopStr.c_str());
+			if (isAlwaysOnTop != ScalingWindow::Get().Options().IsWindowedAlwaysOnTop()) {
+				ScalingWindow::Get().SetWindowedAlwaysOnTop(isAlwaysOnTop);
+			}
+			ImGui::SameLine();
+		}
 
 		if (canSrcMinimized) {
 			const std::string& minimizeStr = _GetResourceString(L"Overlay_Toolbar_Minimize");
@@ -855,8 +868,6 @@ bool OverlayDrawer::_DrawToolbar(uint32_t fps, int& itemId) noexcept {
 			}
 			ImGui::SameLine();
 		}
-
-		const bool isWindowedMode = ScalingWindow::Get().Options().IsWindowedMode();
 
 		{
 			const ImWchar icon = isWindowedMode ?
