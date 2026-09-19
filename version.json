@@ -1,14 +1,14 @@
 {
     "version": "0.12.1",
-    "tag": "v0.12.1-fork.2",
+    "tag": "v0.12.1-fork.3",
     "binary": {
         "x64": {
-            "url": "https://github.com/latentce/Magpie/releases/download/v0.12.1-fork.2/Magpie-v0.12.1-fork.2-x64.zip",
-            "hash": "88635fd5090e94c17e3ccb64e68791bf"
+            "url": "https://github.com/latentce/Magpie/releases/download/v0.12.1-fork.3/Magpie-v0.12.1-fork.3-x64.zip",
+            "hash": "5a0324879fd1f5bd0239105bb0b79f90"
         },
         "ARM64": {
-            "url": "https://github.com/latentce/Magpie/releases/download/v0.12.1-fork.2/Magpie-v0.12.1-fork.2-ARM64.zip",
-            "hash": "67b1c456b753c11db20d4b3471d1e6ff"
+            "url": "https://github.com/latentce/Magpie/releases/download/v0.12.1-fork.3/Magpie-v0.12.1-fork.3-ARM64.zip",
+            "hash": "8b24754d46164a672ab0cb044c40dac4"
         }
     }
 }
